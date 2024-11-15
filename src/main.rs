@@ -23,9 +23,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         port.write_all(poll.as_bytes())?;
         port.flush()?;
+        println!("poll");
 
         let mut read_buf = vec![0; 32];
+        println!("{:?}", port.read(&mut read_buf)?);
         let read_len = port.read(&mut read_buf)?;
+        println!("{:?}", read_len);
         decoder(&read_buf[..read_len], &mut *port);
 
         thread::sleep(Duration::from_millis(500));
@@ -34,13 +37,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn decoder(byte_array: &[u8], serial: &mut dyn SerialPort) {
     let bytes = byte_array.chunks(2).map(|chunk| chunk[0] as usize).collect::<Vec<_>>();
-
+    println!("bytes: {:?}", bytes);
     for byte in bytes {
+        println!("byte: {:?}", byte);
         execute_command(byte, serial);
     }
 }
 
 fn execute_command(byte_command: usize, serial: &mut dyn SerialPort) {
+    println!("Executing command: {}", byte_command);
     match BYTE_TABLE.get(&byte_command.to_string().as_str()) {
         Some(ByteCommand::OneRonStacked) => {
             serial.write_all("R,13,0500640001\r\n".as_bytes()).unwrap();
