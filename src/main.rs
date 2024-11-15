@@ -36,15 +36,29 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn decoder(byte_array: &[u8], serial: &mut dyn SerialPort) {
-    let bytes = byte_array.chunks(2).map(|chunk| chunk[0] as usize).collect::<Vec<_>>();
+    // Convert chunks of 2 bytes into a vector of `usize` values
+    let bytes = byte_array
+        .chunks(2)
+        .map(|chunk| chunk[0] as usize)
+        .collect::<Vec<_>>();
+
     println!("bytes: {:?}", bytes);
+
     for byte in bytes {
-        println!("byte: {:?}", byte);
-        execute_command(byte, serial);
+        // Convert the byte to a hexadecimal string
+        let byte_hex = format!("{:02X}", byte); // Format as a 2-character hex string
+
+        // Check if the byte is in the BYTE_TABLE
+        if let Some(command) = BYTE_TABLE.get(&byte_hex as &str) {
+            println!("Executing command for byte: {:?}", byte_hex);
+            execute_command(command, serial);
+        } else {
+            println!("Skipping unrecognized byte: {:?}", byte_hex);
+        }
     }
 }
 
-fn execute_command(byte_command: usize, serial: &mut dyn SerialPort) {
+fn execute_command(byte_command: &ByteCommand, serial: &mut dyn SerialPort) {
     println!("Executing command: {}", byte_command);
     match BYTE_TABLE.get(&byte_command.to_string().as_str()) {
         Some(ByteCommand::OneRonStacked) => {
