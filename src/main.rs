@@ -1,84 +1,80 @@
-use std::error::Error;
 use std::io::{Write, Read};
 use std::time::Duration;
-use std::{thread, vec};
+use std::{vec};
+use std::error::Error;
 use serialport::SerialPort;
 use phf::phf_map;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let poll = "R,33\r\n";
-    let initialize_commands = vec!["M,1\r\n", "R,30\r\n", "R,34,FFFF0000\r\n"];
-
-    let mut port = serialport::new("/dev/ttyAMA0", 115200)
+    let port_name = "/dev/ttyAMA0";
+    let mut port = serialport::new(port_name, 115200)
         .timeout(Duration::from_millis(5000))
         .open()?;
-    println!("Opened serial port successfully.");
 
-    for command in initialize_commands {
+    // Send initial commands
+    let initial_commands = vec![",R,30\r\n", "R,34,FFFF000032\n"];
+
+    for command in initial_commands {
         port.write_all(command.as_bytes())?;
         port.flush()?;
+        println!("Sent initial command: {}", command.trim());
     }
 
+    // Polling every second with R,33
+    let polling_command = "R,33\r\n";
 
     loop {
-        port.write_all(poll.as_bytes())?;
-        port.flush()?;
-        println!("poll");
+        // Send the polling command
+        port.write_all(polling_command.as_bytes())?;
+        port.flush()?; // Ensure the data is sent
+        println!("Sent polling command: {}", polling_command.trim());
 
-        let mut read_buf = vec![0; 32];
-        println!("{:?}", port.read(&mut read_buf)?);
-        let read_len = port.read(&mut read_buf)?;
-        println!("{:?}", read_len);
-        decoder(&read_buf[..read_len], &mut *port);
-
-        thread::sleep(Duration::from_millis(500));
-    }
-}
-
-fn decoder(byte_array: &[u8], serial: &mut dyn SerialPort) {
-    // Convert chunks of 2 bytes into a vector of `usize` values
-    let bytes = byte_array
-        .chunks(2)
-        .map(|chunk| chunk[0] as usize)
-        .collect::<Vec<_>>();
-
-    println!("bytes: {:?}", bytes);
-
-    for byte in bytes {
-        // Convert the byte to a hexadecimal string
-        let byte_hex = format!("{:02X}", byte); // Format as a 2-character hex string
-
-        // Check if the byte is in the BYTE_TABLE
-        if let Some(command) = BYTE_TABLE.get(&byte_hex as &str) {
-            println!("Executing command for byte: {:?}", byte_hex);
-            execute_command(command, serial);
-        } else {
-            println!("Skipping unrecognized byte: {:?}", byte_hex);
+        // Read the response from the serial port
+        let mut serial_buf: Vec<u8> = vec![0; 32];
+        match port.read(&mut serial_buf) {
+            Ok(bytes_read) => {
+                if bytes_read > 0 {
+                    // Check if the response contains "p,03"
+                    if let Ok(decoded_data) = String::from_utf8(serial_buf[..bytes_read].to_vec()) {
+                        println!("Received ASCII response: {}", decoded_data);
+                        execute_command(&decoded_data, port.as_mut());
+                    }
+                }
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                println!("No response received within timeout.");
+            }
+            Err(e) => {
+                eprintln!("Error reading from serial port: {:?}", e);
+                return Err(Box::new(e));
+            }
         }
+
+        std::thread::sleep(Duration::from_millis(500));
     }
 }
 
-fn execute_command(byte_command: &ByteCommand, serial: &mut dyn SerialPort) {
+fn execute_command(byte_command: &str, serial: &mut dyn SerialPort) {
     println!("Executing command: {}", byte_command);
-    match BYTE_TABLE.get(&byte_command.to_string().as_str()) {
+    match BYTE_TABLE.get(byte_command) {
         Some(ByteCommand::OneRonStacked) => {
             serial.write_all("R,13,0500640001\r\n".as_bytes()).unwrap();
-            thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(100));
             serial.write_all("R,14,01\r\n".as_bytes()).unwrap();
         }
         Some(ByteCommand::FiveRonStacked) => {
             serial.write_all("R,13,0501F40002\r\n".as_bytes()).unwrap();
-            thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(100));
             serial.write_all("R,14,01\r\n".as_bytes()).unwrap();
         }
         Some(ByteCommand::TenRonStacked) => {
             serial.write_all("R,13,0527100003\r\n".as_bytes()).unwrap();
-            thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(100));
             serial.write_all("R,14,01\r\n".as_bytes()).unwrap();
         }
         Some(ByteCommand::FiftyRonStacked) => {
             serial.write_all("R,13,05C3500004\r\n".as_bytes()).unwrap();
-            thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(100));
             serial.write_all("R,14,01\r\n".as_bytes()).unwrap();
         }
         _ => {}
