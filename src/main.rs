@@ -1,34 +1,37 @@
 use std::error::Error;
 use std::io::{Read, Write};
 use std::{str, thread};
-use std::time::Duration;
+use std::fs::OpenOptions;
+use std::time::{Duration, SystemTime};
 use serialport::SerialPort;
 
 fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Box<dyn Error>> {
+
     match byte_command {
+
         80 => {
             port.write_all(b"R,13,0500640001\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            println!("1 RON Sent");
+            log_to_file("1 RON sent").unwrap();
         }
         81 => {
             port.write_all(b"R,13,0501F40002\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            println!("5 RON Sent");
+            log_to_file("1 RON sent").unwrap();
         }
         82 => {
             port.write_all(b"R,13,0503E80003\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            println!("10 RON Sent");
+            log_to_file("1 RON sent").unwrap();
         }
         83 => {
             port.write_all(b"R,13,0513880004\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            println!("50 RON Sent");
+            log_to_file("1 RON sent").unwrap();
         }
         _ => println!("Invalid byte command: {}", byte_command),
     }
@@ -47,6 +50,20 @@ fn decode_input(input: &str, port: &mut dyn SerialPort) -> Result<(), Box<dyn Er
     } else {
         println!("Failed to parse byte command: {}", cleaned_input);
     }
+    Ok(())
+}
+
+fn log_to_file(command: &str) -> std::io::Result<()> {
+    // Open or create a log file in append mode
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("logfile.txt")?;
+
+    // Get the current timestamp
+    let timestamp = SystemTime::now();
+    // Write the log entry
+    writeln!(file, "[{:?}] Executed: {:?}", timestamp, command)?;
     Ok(())
 }
 
