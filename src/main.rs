@@ -48,6 +48,24 @@ fn execute_command(byte_command: ByteCommand, port: &mut dyn Write) {
     }
 }
 
+fn decode_input(input: &str) -> Option<ByteCommand> {
+    // Remove the prefix "p," from the input
+    let cleaned_input = input.trim_start_matches("p,").trim();
+
+    // Extract the relevant part (assuming the pairs are at the end of the string)
+    if cleaned_input.len() < 2 {
+        return None; // Not enough characters for a valid pair
+    }
+    let pair = &cleaned_input[cleaned_input.len() - 2..];
+
+    // Convert the pair to a byte
+    if let Ok(byte) = u8::from_str_radix(pair, 16) {
+        ByteCommand::from_byte(byte)
+    } else {
+        None
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let port_name = "/dev/ttyAMA0"; // Change this to your device
     let mut port = serialport::new(port_name, 115200)
@@ -63,7 +81,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Sent initial command: {}", command.trim());
     }
 
-    // Polling every second with R,33
+    thread::sleep(Duration::from_secs(5));
+
     let polling_command = "R,33\r\n";
 
     loop {
@@ -74,22 +93,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Read the response from the serial port
         let mut serial_buf: Vec<u8> = vec![0; 32];
-        let n = port.read(serial_buf.as_mut_slice())?;
+        let response = port.read(serial_buf.as_mut_slice())?;
 
         // Process the received data
-        if n > 0 {
-            for i in (0..n).step_by(2) {
-                if i + 1 < n {
+        if response > 0 {
+            for i in (0..response).step_by(2) {
+                if i + 1 < response {
                     let byte_command = serial_buf[i];
                     if let Some(command) = ByteCommand::from_byte(byte_command) {
                         execute_command(command, &mut port);
-                    } else {
-                        println!("Unknown command byte received: {}", byte_command);
                     }
                 }
             }
         }
-
         thread::sleep(Duration::from_millis(500));
     }
 }
