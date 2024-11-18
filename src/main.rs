@@ -30,7 +30,7 @@ fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Bo
             port.write_all(b"R,14,01\r\n")?;
             println!("50 RON Sent");
         }
-        _ => println!("Invalid byte command"),
+        _ => println!("Invalid byte command: {}", byte_command),
     }
     Ok(())
 }
@@ -45,7 +45,7 @@ fn decode_input(input: &str, port: &mut dyn SerialPort) -> Result<(), Box<dyn Er
     if let Ok(byte) = cleaned_input[cleaned_input.len() - 2..].parse::<u8>() {
         execute_command(byte, port)?;
     } else {
-        println!("Failed to parse byte command");
+        println!("Failed to parse byte command: {}", cleaned_input);
     }
     Ok(())
 }
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Sent initial command: {}", command.trim());
     }
 
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(1));
 
     let polling_command = "R,33\r\n";
 
