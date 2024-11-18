@@ -51,12 +51,11 @@ fn decode_input(input: &str, port: &mut dyn SerialPort) -> Result<(), Box<dyn Er
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let port_name = "/dev/ttyAMA0"; // Adjust to your serial port
+    let port_name = "/dev/ttyAMA0";
     let mut port = serialport::new(port_name, 115200)
         .timeout(Duration::from_millis(5000))
         .open()?;
 
-    // Send initial commands
     let initial_commands = vec!["M,1\r\n", "R,30\r\n", "R,34,FFFF000032\r\n"];
 
     for command in initial_commands {
@@ -72,12 +71,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut serial_buf = vec![0; 1024]; // Buffer for serial read
 
     loop {
-        // Send the polling command
         port.write_all(polling_command.as_bytes())?;
         port.flush()?; // Ensure the data is sent
         println!("Sent polling command: {}", polling_command.trim());
 
-        // Read response
         let bytes_read = port.read(serial_buf.as_mut_slice())?;
         let response = str::from_utf8(&serial_buf[..bytes_read])?;
 
