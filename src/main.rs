@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .open()?;
 
     // Send initial commands
-    let initial_commands = vec![",R,30\r\n", "R,34,FFFF000032\n"];
+    let initial_commands = vec!["M,1\r\n", "R,30\r\n", "R,34,FFFF000032\n"];
 
     for command in initial_commands {
         port.write_all(command.as_bytes())?;
