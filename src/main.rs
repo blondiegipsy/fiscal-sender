@@ -19,19 +19,19 @@ fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Bo
             port.write_all(b"R,13,0501F40002\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            log_to_file("1 RON sent").unwrap();
+            log_to_file("5 RON sent").unwrap();
         }
         82 => {
             port.write_all(b"R,13,0503E80003\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            log_to_file("1 RON sent").unwrap();
+            log_to_file("10 RON sent").unwrap();
         }
         83 => {
             port.write_all(b"R,13,0513880004\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
-            log_to_file("1 RON sent").unwrap();
+            log_to_file("50 RON sent").unwrap();
         }
         _ => println!("Invalid byte command: {}", byte_command),
     }
