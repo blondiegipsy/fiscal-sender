@@ -100,7 +100,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             for i in (0..response).step_by(2) {
                 if i + 1 < response {
                     let byte_command = serial_buf[i];
+                    println!("Received byte command: {}, {}", byte_command, response);
                     if let Some(command) = ByteCommand::from_byte(byte_command) {
+                        println!("Received byte command: {}, {}", byte_command, response);
+
                         execute_command(command, &mut port);
                     }
                 }
