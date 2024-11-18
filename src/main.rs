@@ -19,13 +19,13 @@ fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Bo
             println!("5 RON Sent");
         }
         82 => {
-            port.write_all(b"R,13,0527100003\r\n")?;
+            port.write_all(b"R,13,0503E80003\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
             println!("10 RON Sent");
         }
         83 => {
-            port.write_all(b"R,13,05C3500004\r\n")?;
+            port.write_all(b"R,13,0513880004\r\n")?;
             thread::sleep(Duration::from_millis(100));
             port.write_all(b"R,14,01\r\n")?;
             println!("50 RON Sent");
