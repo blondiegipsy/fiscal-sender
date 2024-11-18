@@ -1,8 +1,10 @@
 use std::error::Error;
 use std::io::{Read, Write};
-use std::{str, thread};
+use std::{fs, str, thread};
 use std::fs::OpenOptions;
 use std::time::{Duration, SystemTime};
+use chrono::{Local, NaiveDate, NaiveDateTime};
+
 use serialport::SerialPort;
 
 fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Box<dyn Error>> {
@@ -53,19 +55,61 @@ fn decode_input(input: &str, port: &mut dyn SerialPort) -> Result<(), Box<dyn Er
     Ok(())
 }
 
+
 fn log_to_file(command: &str) -> std::io::Result<()> {
-    // Open or create a log file in append mode
+    // Get the current date for the log file name
+    let date = Local::now().format("%Y-%m-%d").to_string();
+    let file_name = format!("logfile-{}.txt", date);
+
+    // Open or create the log file for the day in append mode
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("logfile.txt")?;
+        .open(file_name)?;
 
-    // Get the current timestamp
-    let timestamp = SystemTime::now();
+    // Get the current timestamp for the log entry
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+
     // Write the log entry
-    writeln!(file, "[{:?}] Executed: {:?}", timestamp, command)?;
+    writeln!(file, "[{}] Executed: {}", timestamp, command)?;
+
+    // Clean up old log files
+    clean_old_logs(60)?;
+
     Ok(())
 }
+
+fn clean_old_logs(retention_days: i64) -> std::io::Result<()> {
+    // Get the current date
+    let current_date = Local::now().naive_local();
+    let log_dir = "."; // Directory containing the logs; adjust if needed
+
+    // Iterate over log files in the directory
+    for entry in fs::read_dir(log_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        // Check if the file name matches the log file pattern
+        if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+            if file_name.starts_with("logfile-") && file_name.ends_with(".txt") {
+                // Extract the date part from the file name
+                if let Some(date_str) = file_name.strip_prefix("logfile-").and_then(|n| n.strip_suffix(".txt")) {
+                    if let Ok(file_date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                        // Calculate the file age
+                        let file_age = current_date.signed_duration_since(NaiveDateTime::from(file_date)).num_days();
+                        if file_age > retention_days {
+                            // Delete the file if older than retention period
+                            fs::remove_file(&path)?;
+                            println!("Deleted old log file: {}", file_name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     let port_name = "/dev/ttyAMA0";

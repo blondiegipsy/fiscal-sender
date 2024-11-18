@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 serialport = "4.5.1"
+datetime = "0.5.2"
+chrono = "0.4.38"
