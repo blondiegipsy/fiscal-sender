@@ -2,7 +2,7 @@ use std::error::Error;
 use std::io::{Read, Write};
 use std::{fs, str, thread};
 use std::fs::OpenOptions;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration};
 use chrono::{Local, NaiveDate, NaiveDateTime};
 
 use serialport::SerialPort;
