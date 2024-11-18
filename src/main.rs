@@ -1,79 +1,63 @@
 use std::error::Error;
-use std::io::{Write};
-use std::thread;
+use std::io::{Read, Write};
+use std::{str, thread};
 use std::time::Duration;
+use serialport::SerialPort;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-enum ByteCommand {
-    OneRonStacked,
-    FiveRonStacked,
-    TenRonStacked,
-    FiftyRonStacked,
-}
-
-impl ByteCommand {
-    fn from_byte(byte: u8) -> Option<Self> {
-        match byte {
-            0x80 => Some(ByteCommand::OneRonStacked),
-            0x81 => Some(ByteCommand::FiveRonStacked),
-            0x82 => Some(ByteCommand::TenRonStacked),
-            0x83 => Some(ByteCommand::FiftyRonStacked),
-            _ => None,
-        }
-    }
-}
-
-fn execute_command(byte_command: ByteCommand, port: &mut dyn Write) {
+fn execute_command(byte_command: u8, port: &mut dyn SerialPort) -> Result<(), Box<dyn Error>> {
     match byte_command {
-        ByteCommand::OneRonStacked => {
-            port.write_all(b"R,13,0500640001\r\n").unwrap();
+        80 => {
+            port.write_all(b"R,13,0500640001\r\n")?;
             thread::sleep(Duration::from_millis(100));
-            port.write_all(b"R,14,01\r\n").unwrap();
+            port.write_all(b"R,14,01\r\n")?;
+            println!("1 RON Sent");
         }
-        ByteCommand::FiveRonStacked => {
-            port.write_all(b"R,13,0501F40002\r\n").unwrap();
+        81 => {
+            port.write_all(b"R,13,0501F40002\r\n")?;
             thread::sleep(Duration::from_millis(100));
-            port.write_all(b"R,14,01\r\n").unwrap();
+            port.write_all(b"R,14,01\r\n")?;
+            println!("5 RON Sent");
         }
-        ByteCommand::TenRonStacked => {
-            port.write_all(b"R,13,0527100003\r\n").unwrap();
+        82 => {
+            port.write_all(b"R,13,0527100003\r\n")?;
             thread::sleep(Duration::from_millis(100));
-            port.write_all(b"R,14,01\r\n").unwrap();
+            port.write_all(b"R,14,01\r\n")?;
+            println!("10 RON Sent");
         }
-        ByteCommand::FiftyRonStacked => {
-            port.write_all(b"R,13,05C3500004\r\n").unwrap();
+        83 => {
+            port.write_all(b"R,13,05C3500004\r\n")?;
             thread::sleep(Duration::from_millis(100));
-            port.write_all(b"R,14,01\r\n").unwrap();
+            port.write_all(b"R,14,01\r\n")?;
+            println!("50 RON Sent");
         }
+        _ => println!("Invalid byte command"),
     }
+    Ok(())
 }
 
-fn decode_input(input: &str) -> Option<ByteCommand> {
-    // Remove the prefix "p," from the input
+fn decode_input(input: &str, port: &mut dyn SerialPort) -> Result<(), Box<dyn Error>> {
     let cleaned_input = input.trim_start_matches("p,").trim();
-
-    // Extract the relevant part (assuming the pairs are at the end of the string)
     if cleaned_input.len() < 2 {
-        return None; // Not enough characters for a valid pair
+        println!("Invalid byte input");
+        return Ok(());
     }
-    let pair = &cleaned_input[cleaned_input.len() - 2..];
 
-    // Convert the pair to a byte
-    if let Ok(byte) = u8::from_str_radix(pair, 16) {
-        ByteCommand::from_byte(byte)
+    if let Ok(byte) = cleaned_input[cleaned_input.len() - 2..].parse::<u8>() {
+        execute_command(byte, port)?;
     } else {
-        None
+        println!("Failed to parse byte command");
     }
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let port_name = "/dev/ttyAMA0"; // Change this to your device
+    let port_name = "/dev/ttyAMA0"; // Adjust to your serial port
     let mut port = serialport::new(port_name, 115200)
         .timeout(Duration::from_millis(5000))
         .open()?;
 
     // Send initial commands
-    let initial_commands = vec!["M,1\r\n", "R,30\r\n", "R,34,FFFF000032\n"];
+    let initial_commands = vec!["M,1\r\n", "R,30\r\n", "R,34,FFFF000032\r\n"];
 
     for command in initial_commands {
         port.write_all(command.as_bytes())?;
@@ -85,30 +69,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let polling_command = "R,33\r\n";
 
+    let mut serial_buf = vec![0; 1024]; // Buffer for serial read
+
     loop {
         // Send the polling command
         port.write_all(polling_command.as_bytes())?;
         port.flush()?; // Ensure the data is sent
         println!("Sent polling command: {}", polling_command.trim());
 
-        // Read the response from the serial port
-        let mut serial_buf: Vec<u8> = vec![0; 32];
-        let response = port.read(serial_buf.as_mut_slice())?;
+        // Read response
+        let bytes_read = port.read(serial_buf.as_mut_slice())?;
+        let response = str::from_utf8(&serial_buf[..bytes_read])?;
 
-        // Process the received data
-        if response > 0 {
-            for i in (0..response).step_by(2) {
-                if i + 1 < response {
-                    let byte_command = serial_buf[i];
-                    println!("Received byte command: {}, {}", byte_command, response);
-                    if let Some(command) = ByteCommand::from_byte(byte_command) {
-                        println!("Received byte command: {}, {}", byte_command, response);
+        decode_input(response, &mut *port)?;
 
-                        execute_command(command, &mut port);
-                    }
-                }
-            }
-        }
         thread::sleep(Duration::from_millis(500));
     }
 }
